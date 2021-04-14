@@ -26,10 +26,10 @@
 
 
 ## Required Libraries
-> DFPlayerMiniFast (Nano TX -> DFPlayer pin2): https://github.com/scottpav/DFPlayerMini_Fast
-
 > Adafruit NeoPixel Library: https://github.com/adafruit/Adafruit_NeoPixel
 
-> Led Control: https://github.com/wayoda/LedControl
-
 > RTCLib: https://github.com/adafruit/RTClib
+
+> DFPlayerMiniFast (Nano TX -> DFPlayer pin2): https://github.com/scottpav/DFPlayerMini_Fast
+
+> Led Control: https://github.com/wayoda/LedControl
