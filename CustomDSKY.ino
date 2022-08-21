@@ -1,5 +1,12 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
+// CustomDSKY - Further customized implementation of the OpenDSKY updated from code for
+//    the Apollo Education Experience Project - for 'Nano Every' compatibility.
+//
+// Copyright (c) 2022 by Jason Hill
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
 // CustomDSKY - Customized implementation of the OpenDSKY interface written exclusively
 //    for the Apollo Education Experience Project
 //
@@ -41,8 +48,13 @@
 
 #include <Adafruit_NeoPixel.h>
 #include <Wire.h>
-#include "RTClib.h"
-#include "LedControl.h"
+#include <RTClib.h>
+
+#ifdef SECONDS_PER_DAY
+  #undef SECONDS_PER_DAY
+#endif
+
+#include <LedControl.h>
 #include <NMEAGPS.h>
 #include <Streamers.h>
 #include <GPSport.h>
@@ -54,7 +66,9 @@
 #define PIXEL_PIN      6
 #define RELAY_PIN      7
 #define NUMPIXELS      18
-
+#define PUSHBTN_WAIT   150
+#define MP3PIN         9
+#define EEPROMADDR     10
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Externals
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1121,8 +1135,8 @@ void action18() {
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // action19 - Sets/Starts the Count-Up and Count-Down Timers
-//  - V21N34 - Sets count-up timer
-//  - V21N35 - Sets count-down timer
+//  - V25N34 - Sets count-up timer
+//  - V25N35 - Sets count-down timer
 //  - once timer is started, calls V16N34 or V16N35 depending on NOUN selected
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1578,7 +1592,7 @@ void action101() {
 
   }
 
-  lc.setRow(3,3,B00000000);
+  lc.setRow(3,3,0b00000000);
   compAct();
 
 }
@@ -1664,7 +1678,7 @@ void lunarDecentSim() {
 
           for(int d=0;d<6;d++) {
 
-            lc.setRow(t,d,B00000000);
+            lc.setRow(t,d,0b00000000);
 
           }
         }
@@ -1685,14 +1699,14 @@ void lunarDecentSim() {
 
       for(int t=1;t<4;t++) {
 
-        lc.setRow(t,0,B00000000);
-        lc.setRow(t,1,B00000000); 
+        lc.setRow(t,0,0b00000000);
+        lc.setRow(t,1,0b00000000); 
 
         if(t == 3){
 
           for(int d=0;d<6;d++) {
 
-            lc.setRow(t,d,B00000000);
+            lc.setRow(t,d,0b00000000);
 
           }
         }
@@ -2765,8 +2779,12 @@ static void updateIMU() {
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x3B);                           // starting with register 0x3B (ACCEL_XOUT_H)
   Wire.endTransmission(false);
-  Wire.requestFrom(MPU_addr,14,true);         // request a total of 14 registers
-
+  #ifdef ARDUINO_AVR_NANO_EVERY
+    Wire.requestFrom((uint8_t)MPU_addr,(size_t)14,true);   // request a total of 14 registers  
+  #else
+    Wire.requestFrom(MPU_addr,14,true);         // request a total of 14 registers
+  #endif
+  
   imuAccelX = Wire.read()<<8|Wire.read();     // 0x3B (ACCEL_XOUT_H) & 0x3C (ACCEL_XOUT_L)
   imuAccelY = Wire.read()<<8|Wire.read();     // 0x3D (ACCEL_YOUT_H) & 0x3E (ACCEL_YOUT_L)
   imuAccelZ = Wire.read()<<8|Wire.read();     // 0x3F (ACCEL_ZOUT_H) & 0x40 (ACCEL_ZOUT_L)
@@ -2867,7 +2885,7 @@ void tempDateTime(){
 
     setDigits(1,1,MM[0]);
     setDigits(1,2,MM[1]);
-    lc.setRow(1,3,B00000000);
+    lc.setRow(1,3,0b00000000);
     setDigits(1,4,(DD[0]));
     setDigits(1,5,DD[1]);
 
@@ -2915,15 +2933,13 @@ void imu_1202(){
 
       for(int i=1;i<4;i++) {
 
-        lc.setRow(i,0,B00000000);
-        lc.setRow(i,1,B00000000); 
+        lc.setRow(i,0,0b00000000);
+        lc.setRow(i,1,0b00000000); 
 
         if(i == 3){
 
           for(int d=0;d<6;d++) {
-
-            lc.setRow(i,d,B00000000);
-
+            lc.setRow(i,d,0b00000000);
           }
         }
       }
@@ -2931,12 +2947,10 @@ void imu_1202(){
       if(keyVal != oldKey) {
 
         for(int i=0;i<7;i++) {
-
-          lc.setRow(1,i,B00000000);
-          lc.setRow(2,i,B00000000); 
-          lc.setRow(3,i,B00000000); 
-          lc.setRow(4,i,B00000000); 
-
+          lc.setRow(1,i,0b00000000);
+          lc.setRow(2,i,0b00000000); 
+          lc.setRow(3,i,0b00000000); 
+          lc.setRow(4,i,0b00000000); 
         }
 
         oldKey = keyVal;
@@ -2970,11 +2984,16 @@ void audioPlayback(byte playTrack) {
   if (audioTrack > numTracks) { audioTrack = 1; }
 
   while (audioTrack != newTrack) {
-
-    pinMode(9, OUTPUT);
-    delay(100);
-    pinMode(9, INPUT);
-    delay(100);
+    delay(PUSHBTN_WAIT);
+    pinMode(MP3PIN, INPUT);
+    delay(PUSHBTN_WAIT);
+    
+    pinMode(MP3PIN, OUTPUT);
+    digitalWrite(MP3PIN,LOW);
+    delay(PUSHBTN_WAIT);
+    pinMode(MP3PIN, INPUT);
+    delay(PUSHBTN_WAIT);
+    
     audioTrack++;
 
     if (audioTrack > numTracks) {
@@ -2982,11 +3001,7 @@ void audioPlayback(byte playTrack) {
       audioTrack = 1;
 
     }
-  }
 
-  pinMode(9, OUTPUT);
-  delay(100);
-  pinMode(9, INPUT);
-  audioTrack++;
+  }
 
 }
