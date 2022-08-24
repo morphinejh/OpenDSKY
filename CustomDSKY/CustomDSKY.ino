@@ -209,6 +209,7 @@ bool     N34running = 0;
 
 TimeSpan N35current(0);
 long     N35end     = 0;
+uint16_t N35days    = 0;
 int      N35currhr  = 0;
 int      N35currmin = 0;
 int      N35currsec = 0;
@@ -1088,7 +1089,7 @@ void elapsedTimeDisplay( long displayTime ) {
     elapsedCurr = TimeSpan(now.secondstime() - displayTime);
     elapsedSec  = elapsedCurr.seconds();
     elapsedMin  = elapsedCurr.minutes();
-    elapsedHr   = elapsedCurr.hours();
+    elapsedHr   = elapsedCurr.hours() + elapsedCurr.days()*24;
 
     setShowRegisters(elapsedHr,elapsedMin,elapsedSec * 100);      // allow space for tenths and hundredths
 
@@ -1113,7 +1114,7 @@ void action18() {
     N35current = TimeSpan(N35end - now.secondstime());
     N35currsec = N35current.seconds();
     N35currmin = N35current.minutes();
-    N35currhr  = N35current.hours();
+    N35currhr  = N35current.hours()+N35current.days()*24;
 
     setShowRegisters(N35currhr,N35currmin,N35currsec * 100);      // allow space for tenths and hundredths
 
@@ -1123,6 +1124,7 @@ void action18() {
 
   } else {
 
+    N35days = 0;
     N35currhr  = 0;
     N35currmin = 0;
     N35currsec = 0;
@@ -1162,6 +1164,7 @@ void action19() {
 
   } else {
 
+    N35days    = 0;
     N35currhr  = 0;
     N35currmin = 0;
     N35currsec = 0;
@@ -1176,7 +1179,10 @@ void action19() {
     while(keyVal != 15){ keyVal = readkb(); }
 
     now = rtc.now();
-    N35current = TimeSpan( N35currhr/24, N35currhr %= 24, N35currmin, N35currsec);
+
+    N35days = N35currhr/24;
+    N35currhr %= 24;
+    N35current = TimeSpan( N35days, N35currhr, N35currmin, N35currsec);
 
     N35end += N35current.totalseconds()+now.secondstime();
     N35running = 1;
@@ -2636,6 +2642,8 @@ void validateAct(){
 int editregister( int r1, int r2, int r3, int editReg, int minVal, int maxVal ) {
 
   int editVal;
+  byte blankCounter=0;
+  unsigned long blankTime=micros();
 
   Register[1] = r1;
   Register[2] = r2;
@@ -2664,10 +2672,25 @@ int editregister( int r1, int r2, int r3, int editReg, int minVal, int maxVal ) 
     Register[1] = r1; Register[2] =  r2; Register[3] = r3;
     Register[editReg] = editVal;
 
-    lc.clearDisplay(editReg);
-    delay(50);
-    set_Digits();
-    delay(200);
+    if(blankCounter==0)
+      lc.clearDisplay(editReg);
+    
+    if( (micros()- blankTime) > 25000){
+      blankCounter++;
+      blankTime=micros();
+      
+      switch(blankCounter){
+        case 2://~50ms display is off
+          set_Digits();
+          break;
+        case 8://~200ms before display is blanked again
+          blankCounter=0;
+          break;
+      }
+
+      if(blankCounter>8)
+        blankCounter=0;
+    }
 
   }
 
